@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `diskon` ADD COLUMN `stanID` INTEGER NOT NULL DEFAULT 0;
+
+-- AddForeignKey
+ALTER TABLE `diskon` ADD CONSTRAINT `diskon_stanID_fkey` FOREIGN KEY (`stanID`) REFERENCES `stan`(`stanID`) ON DELETE RESTRICT ON UPDATE CASCADE;

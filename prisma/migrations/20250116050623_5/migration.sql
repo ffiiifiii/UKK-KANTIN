@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `menu` MODIFY `foto` VARCHAR(191) NULL DEFAULT '';
