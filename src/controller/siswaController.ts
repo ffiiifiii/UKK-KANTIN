@@ -44,11 +44,12 @@ const readSiswa = async (request: Request, response: Response): Promise<any> => 
         if (!admin_stan) {
             return response.status(403).json({
                 status: false,
-                message: "Unauthorized: hanya admin stan yang dapat membuat menu"
+                message: "Unauthorized: hanya admin stan yang dapat melihat data siswa"
             });
         }
 
         const { search } = request.query
+
         const dataSiswa = await prisma.siswa.findMany({
             where: {
                 nama_siswa: { contains: search?.toString() || "" }
@@ -64,6 +65,7 @@ const readSiswa = async (request: Request, response: Response): Promise<any> => 
             message: `siswa has retrived`,
             data: dataSiswa
         }).status(200)
+        
     } catch (error) {
         return response.json({
             status: false,

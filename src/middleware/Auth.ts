@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { verify } from "jsonwebtoken";
-import { PrismaClient, status } from "@prisma/client"
+import { verify } from "jsonwebtoken"; //verifikasi JWT
+import { PrismaClient} from "@prisma/client"
 
 const prisma = new PrismaClient({ errorFormat: "pretty" })
 
@@ -26,6 +26,7 @@ export const verifyToken = async (
 ): Promise<any> => {
   const authHeader = request.header("Authorization");
 
+  //harus diawali dengan token
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return response.status(401).json({
       message: "Access denied. Token must be in 'Bearer <token>' format."
@@ -38,6 +39,7 @@ export const verifyToken = async (
     const secret = process.env.JWT_SECRET_KEY || "";
     const verified = verify(token, secret) as JwtPayload;
 
+    //cek role
     if (verified.role !== "siswa" && verified.role !== "admin_stan") {
       return response.json({
         message: "Forbidden. Only siswa or admin can access this route."
@@ -45,7 +47,7 @@ export const verifyToken = async (
     }
 
 
-    //   [Optional] Validasi ke DB pakai Prisma (jika mau pastikan user valid)
+    //verifikasi ke database
     const user = await prisma.users.findUnique({ where: { userID: verified.userID } });
     if (!user) {
       return response.json({

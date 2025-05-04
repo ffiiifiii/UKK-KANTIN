@@ -1,4 +1,5 @@
 import express from "express";
+//impor semua handler transaksi controller
 import { createTransaksi, deleteTransaksi, historyTransaksiPerBulan, generateNotaPDF, readTransaksi, updateTransaksi } from "../controller/transaksiController";
 import { verifyToken } from "../middleware/Auth";
 

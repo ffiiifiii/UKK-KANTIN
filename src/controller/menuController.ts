@@ -69,7 +69,7 @@ const readMenu = async (request: Request, response: Response): Promise<any> => {
         const admin_stan = await prisma.stan.findFirst({
             where: { userID: Number(userID) }
         });
-
+        
         const siswa = await prisma.siswa.findFirst({
             where: { userID: Number(userID) }
         });

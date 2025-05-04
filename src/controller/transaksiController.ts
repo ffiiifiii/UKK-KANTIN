@@ -8,6 +8,54 @@ const prisma = new PrismaClient({ errorFormat: "pretty" })
 
 const readTransaksi = async (request: Request, response: Response): Promise<any> => {
     try {
+        const userID = (request as any).user?.userID;
+
+        if (!userID) {
+            return response.status(401).json({
+                status: false,
+                message: "Unauthorized: userID tidak ditemukan dalam token"
+            });
+        }
+
+        const siswa = await prisma.siswa.findFirst({ where: { userID: Number(userID) } });
+        const admin_stan = await prisma.stan.findFirst({ where: { userID: Number(userID) } });
+
+        let transaksiList = [];
+
+        if (siswa) {
+            transaksiList = await prisma.transaksi.findMany({
+                where: { siswaID: siswa.siswaID },
+                include: {
+                    detail_transaksi: {
+                        include: {
+                            menu_details: true
+                        }
+                    },
+                    stan_details: true,
+                    siswa_details: true
+                }
+
+            });
+        } else if (admin_stan) {
+            transaksiList = await prisma.transaksi.findMany({
+                where: { stanID: admin_stan.stanID },
+                include: {
+                    detail_transaksi: {
+                        include: {
+                            menu_details: true
+                        }
+                    },
+                    stan_details: true,
+                    siswa_details: true
+                }
+
+            });
+        } else {
+            return response.status(403).json({
+                status: false,
+                message: "User bukan siswa atau stan"
+            });
+        }
         const { search } = request.params
 
         const transaksi = await prisma.transaksi.findMany({
@@ -67,6 +115,7 @@ const readTransaksi = async (request: Request, response: Response): Promise<any>
     }
 }
 
+// untuk mengambil riwayat transaksi per bulan berdasarkan role pengguna (siswa atau admin stan)
 const historyTransaksiPerBulan = async (request: Request, response: Response): Promise<any> => {
     try {
         const userID = (request as any).user?.userID;
@@ -166,10 +215,12 @@ const historyTransaksiPerBulan = async (request: Request, response: Response): P
     }
 }
 
+// untuk membuat file PDF berisi nota transaksi
 const generateNotaPDF = async (request: Request, response: Response): Promise<any> => {
     try {
         const { transaksiID } = request.params;
 
+        // Cari data transaksi berdasarkan ID
         const transaksi = await prisma.transaksi.findUnique({
             where: { transaksiID: Number(transaksiID) },
             include: {
@@ -190,6 +241,7 @@ const generateNotaPDF = async (request: Request, response: Response): Promise<an
         const doc = new PDFDocument({ margin: 50 });
         doc.pipe(fs.createWriteStream(pdfPath));
 
+        // isi nota
         doc.fontSize(16).text("NOTA TRANSAKSI", { align: "center", underline: true });
         doc.moveDown(1.5); // Jarak antara judul dan informasi
 
@@ -289,6 +341,7 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
     const { items } = request.body;
     const userID = (request as any).user?.userID;
 
+    // cek daftar pesanan 
     if (!items || !Array.isArray(items) || items.length === 0) {
         return response.json({
             status: false,
@@ -310,16 +363,22 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
         }
 
         const menuIDs = items.map((item: any) => item.menuID);
+
         const menus = await prisma.menu.findMany({
-            where: { menuID: { in: menuIDs } },
+            where: {
+                menuID: { in: menuIDs }
+            },
             include: {
                 menu_diskon: {
-                    include: { diskon_details: true }
+                    include: {
+                        diskon_details: true
+                    }
                 },
                 stan_details: true
             }
         });
 
+        //semua menu harus berada dalam satu stan 
         const stanSet = new Set(menus.map(menu => menu.stanID));
         if (stanSet.size > 1) {
             return response.json({
@@ -341,6 +400,7 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
             }
         });
 
+        //proses setiap item pesanan 
         let total = 0;
         const detailOutput: any[] = [];
 
@@ -348,6 +408,7 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
             const menu = menus.find(m => m.menuID === item.menuID);
             if (!menu) continue;
 
+            //hitung diskon (jika ada)
             let hargaFinal = menu.harga;
             let isDiskon = true;
             let namaDiskon: string | null = null;
@@ -361,6 +422,7 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
                 namaDiskon = menuDiskon.nama_diskon;
             }
 
+            //hitung dan simpan proses transaksi
             const subtotal = hargaFinal * item.qty;
             total += subtotal;
 
@@ -402,14 +464,18 @@ const createTransaksi = async (request: Request, response: Response): Promise<an
     }
 }
 
-
 const updateTransaksi = async (request: Request, response: Response): Promise<any> => {
     try {
         const { transaksiID } = request.params
         const { tanggal, stanID, siswaID, status } = request.body
+        const userID = (request as any).user?.userID;
+        const admin_stan = await prisma.stan.findFirst({ where: { userID: Number(userID) } });
 
         const findTransaksi = await prisma.transaksi.findFirst({
-            where: { transaksiID: Number(transaksiID) }
+            where: {
+                transaksiID: Number(transaksiID),
+                stanID: admin_stan?.stanID
+            }
         })
 
         if (!findTransaksi) return response.json({
@@ -451,6 +517,7 @@ const deleteTransaksi = async (request: Request, response: Response): Promise<an
         const { transaksiID } = request.params;
         const userID = (request as any).user?.userID;
 
+        //verifikasi user melalui token
         if (!userID) {
             return response.status(401).json({
                 status: false,
@@ -458,24 +525,29 @@ const deleteTransaksi = async (request: Request, response: Response): Promise<an
             });
         }
 
-        // Cek apakah user adalah admin stan
-        const adminStan = await prisma.stan.findFirst({
+        const siswa = await prisma.siswa.findFirst({
             where: { userID: Number(userID) }
         });
 
-        if (!adminStan) {
+        //memeriksa jika pengguna adalah siswa
+        if (!siswa) {
             return response.status(403).json({
                 status: false,
-                message: "Akses ditolak: hanya admin stan yang bisa menghapus transaksi"
+                message: "Hanya siswa yang bisa membatalkan transaksi"
             });
         }
 
+        //mencari transaksi melalui ID
         const transaksi = await prisma.transaksi.findUnique({
             where: {
                 transaksiID: Number(transaksiID)
+            },
+            include: {
+                siswa_details: true
             }
         });
 
+        //memeriksa apakah terdapat transaksi 
         if (!transaksi) {
             return response.status(404).json({
                 status: false,
@@ -483,15 +555,23 @@ const deleteTransaksi = async (request: Request, response: Response): Promise<an
             });
         }
 
-        // Pastikan hanya admin stan yang sesuai yang bisa menghapus transaksi
-        if (transaksi.stanID !== adminStan.stanID) {
+        //Memeriksa apakah siswaID yang ada pada transaksi sama dengan siswaID yang dimiliki
+        if (transaksi.siswaID !== siswa.siswaID) {
             return response.status(403).json({
                 status: false,
-                message: "Akses ditolak: Anda tidak memiliki hak untuk menghapus transaksi ini"
+                message: "Akses ditolak: Anda tidak memiliki hak untuk membatalkan transaksi ini"
             });
         }
 
-        // Hapus detail transaksi terlebih dahulu (jika diperlukan oleh database constraint)
+        // Cek status transaksi
+        if (transaksi.status !== "belumdikonfirm") {
+            return response.status(400).json({
+                status: false,
+                message: "Transaksi tidak bisa dibatalkan karena sudah dikonfirmasi"
+            });
+        }
+
+        // Hapus detail transaksi terlebih dahulu
         await prisma.detail_transaksi.deleteMany({
             where: {
                 transaksiID: Number(transaksiID)
