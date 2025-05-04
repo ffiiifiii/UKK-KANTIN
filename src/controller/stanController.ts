@@ -112,11 +112,11 @@ const updateStan = async (request: Request, response: Response): Promise<any> =>
 
 const deleteStan = async (request: Request, response: Response): Promise<any> => {
     try {
-        const {stanID} = request.params
+        const { stanID } = request.params
 
         const findStan = await prisma.stan.findFirst({
             where: {
-                stanID: Number(stanID)
+                stanID: Number(stanID),
             }
         })
 

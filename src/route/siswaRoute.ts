@@ -1,13 +1,14 @@
-import  express from "express"
+import express from "express"
 import { creatSiswa, deleteSiswa, readSiswa, updateSiswa } from "../controller/siswaController"
+import { verifyToken } from "../middleware/Auth";
 
 const app = express()
 
 app.use(express.json())
 
-app.post(`/siswa`, creatSiswa)
-app.get(`/siswa`, readSiswa)
-app.put(`/siswa/:siswaID`, updateSiswa)
-app.delete(`/siswa/:siswaID`, deleteSiswa)
+app.post(`/siswa`, [verifyToken], creatSiswa)
+app.get(`/siswa`, [verifyToken], readSiswa)
+app.put(`/siswa/:siswaID`, [verifyToken], updateSiswa)
+app.delete(`/siswa/:siswaID`, [verifyToken], deleteSiswa)
 
 export default app

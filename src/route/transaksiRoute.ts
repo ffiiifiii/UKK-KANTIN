@@ -1,13 +1,16 @@
-import  express  from "express";
-import { createTransaksi, deleteTransaksi, readTransaksi, updateTransaksi } from "../controller/transaksiController";
+import express from "express";
+import { createTransaksi, deleteTransaksi, historyTransaksiPerBulan, generateNotaPDF, readTransaksi, updateTransaksi } from "../controller/transaksiController";
+import { verifyToken } from "../middleware/Auth";
 
 const app = express()
 
 app.use(express.json())
 
-app.post(`/transaksi`, createTransaksi)
-app.get(`/transaksi`, readTransaksi)
-app.put(`/transaksi/:transaksiID`, updateTransaksi)
-app.delete(`/transaksi/:transaksiID`, deleteTransaksi)
+app.post(`/transaksi`, [verifyToken], createTransaksi)
+app.get(`/transaksi`, [verifyToken], readTransaksi)
+app.get(`/notaTransaksi/:transaksiID`, [verifyToken], generateNotaPDF)
+app.get("/historyTransaksi", [verifyToken], historyTransaksiPerBulan);
+app.put(`/transaksi/:transaksiID`, [verifyToken], updateTransaksi)
+app.delete(`/transaksi/:transaksiID`, [verifyToken], deleteTransaksi)
 
 export default app
